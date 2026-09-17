@@ -1,0 +1,29 @@
+seed: 42
+
+paths:
+  raw: data/raw
+  processed: data/processed
+  checkpoints: checkpoints
+  models: models
+
+image:
+  patch_size: 256
+  stride: 192
+  max_side: 2048
+
+training:
+  epochs: 30
+  batch_size: 16
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  num_workers: 2
+  val_fraction: 0.1
+
+model:
+  base_channels: 16
+  depth: 3
+
+export:
+  opset: 17
+  quantize: true
+  target_mb: 10
