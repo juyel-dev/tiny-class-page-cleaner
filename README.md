@@ -1,28 +1,66 @@
 # Tiny Class Page Cleaner
 
-A tiny vision model for converting class-note pages into clean, printable black-on-white pages while preserving the original page geometry.
+A small, deterministic-first pipeline for converting photographed/scanned class pages into clean black-on-white pages **without changing page geometry**.
 
-## Goal
+## Design
 
-- Train on 5,000+ class pages
-- Learn foreground/background separation
-- Preserve handwriting, diagrams, layout, and dimensions
-- Produce deterministic black-on-white output
-- Quantize the model to INT8
-- Keep the final model under 10 MB
+`page -> foreground mask -> black/white render`
 
-## Planned pipeline
+The neural network predicts only a foreground mask. It never generates replacement pixels, so it cannot hallucinate handwriting, diagrams, or text. Final rendering is deterministic.
 
-```text
-Raw pages
-   -> preprocessing / pseudo-label generation
-   -> training patches
-   -> tiny segmentation CNN
-   -> validation
-   -> INT8 quantization
-   -> printable B/W rendering
+## Pipeline
+
+1. `src/prepare.py` — build page-level train/validation splits and deterministic pseudo-label masks.
+2. `src/train.py` — train the tiny U-Net with BCE + Dice loss.
+3. `src/infer.py` — overlapping full-resolution patch inference; output width/height are preserved exactly.
+4. `src/batch_infer.py` — process an entire folder recursively.
+5. `src/evaluate.py` — evaluate validation masks using IoU/F1.
+6. `src/export_onnx.py` — export ONNX and an INT8 version and report model size.
+
+## Local commands
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
 ```
 
-## Status
+Prepare data:
 
-Project initialized. Dataset and model pipeline are being built incrementally.
+```bash
+python -m src.prepare --input data/raw --output data/processed
+```
+
+Train:
+
+```bash
+python -m src.train
+```
+
+Clean one page:
+
+```bash
+python -m src.infer --input page.jpg --output clean.png
+```
+
+Clean a folder:
+
+```bash
+python -m src.batch_infer --input pages --output cleaned
+```
+
+Evaluate:
+
+```bash
+python -m src.evaluate
+```
+
+Export:
+
+```bash
+python -m src.export_onnx
+```
+
+## Important
+
+The current pseudo-labeler is an MVP baseline. The intended production model should be trained on representative pages and checked visually on held-out pages before trusting the result for a large archive. The 10 MB target is enforced at export time; if the INT8 model exceeds it, reduce `base_channels`/`depth` and retrain.
